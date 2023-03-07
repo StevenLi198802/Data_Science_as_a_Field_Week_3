@@ -1,0 +1,121 @@
+---
+title: "Data_Science_as_a_Field_Week_3"
+author: "Xianhai Li"
+date: "2023-01-29"
+output: 
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# load the library tidyverse
+library(tidyverse)
+# load the library lubridate 
+library(lubridate)
+```
+
+```{r import_data, message = FALSE}
+# set the file_url
+file_url <-  'https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD'
+# read the file from the website
+nypd_Shooting_Incident_Data__Historic <- read.csv(file_url)
+```
+
+```{r show_original_data, message = FALSE}
+# check the first ten records
+nypd_Shooting_Incident_Data__Historic %>% head(n=10)
+# check the sumarry of the original data
+summary(nypd_Shooting_Incident_Data__Historic)
+```
+
+```{r tidy_data, message= FALSE}
+
+# Let's decide the factor elements for some fields.
+
+# check what we have for the age fields.
+# we union the age fields and get the unique value
+unique(union(nypd_Shooting_Incident_Data__Historic$PERP_AGE_GROUP,nypd_Shooting_Incident_Data__Historic$VIC_AGE_GROUP))
+
+# we can see the following elements are valid, so set a factor as below.
+age = factor(c("UNKNOWN","<18","18-24","25-44","45-64","65+"),ordered = TRUE)
+# if the age is not in our factor, we will treat them as unknown
+nypd_Shooting_Incident_Data__Historic$PERP_AGE_GROUP[!(nypd_Shooting_Incident_Data__Historic$PERP_AGE_GROUP %in% age)] <- "UNKOWN"
+
+nypd_Shooting_Incident_Data__Historic$VIC_AGE_GROUP[!(nypd_Shooting_Incident_Data__Historic$VIC_AGE_GROUP %in% age)] <- "UNKOWN"
+
+# check what we have for the age fields.
+# we union the age fields and get the unique value
+unique(union(nypd_Shooting_Incident_Data__Historic$PERP_SEX,nypd_Shooting_Incident_Data__Historic$VIC_SEX))
+
+# we can see the following elements are valid, so set a factor as below.
+sex = factor(c("U","M","F"), ordered = TRUE)
+# if the sex is not in our factor, we will treat then as unknown
+nypd_Shooting_Incident_Data__Historic$PERP_SEX[!(nypd_Shooting_Incident_Data__Historic$PERP_SEX %in% sex)] <- "U"
+
+nypd_Shooting_Incident_Data__Historic$VIC_SEX[!(nypd_Shooting_Incident_Data__Historic$VIC_SEX %in% sex)] <- "U"
+
+# check what we have for the age fields.
+# we union the age fields and get the unique value
+unique(union(nypd_Shooting_Incident_Data__Historic$PERP_RACE,nypd_Shooting_Incident_Data__Historic$VIC_RACE))
+
+# we can see the following elements are valid, so set a factor as below.
+race = factor(c("UNKNOWN","AMERICAN INDIAN/ALASKAN NATIVE","ASIAN / PACIFIC ISLANDER","BLACK","BLACK HISPANIC","WHITE","WHITE HISPANIC"), ordered = TRUE)
+
+# if the sex is not in our factor, we will treat then as unknown
+nypd_Shooting_Incident_Data__Historic$PERP_RACE[!(nypd_Shooting_Incident_Data__Historic$PERP_RACE %in% race)] <- "UNKNOWN"
+
+nypd_Shooting_Incident_Data__Historic$VIC_RACE[!(nypd_Shooting_Incident_Data__Historic$VIC_RACE %in% race)] <- "UNKNOWN"
+
+# remove the fields that we don't need
+# change the data type for the fields.
+tydied_nypd_shooting_incident_data_historic <- nypd_Shooting_Incident_Data__Historic %>%
+    select(-c(INCIDENT_KEY,PRECINCT,JURISDICTION_CODE,BORO,LOCATION_DESC,X_COORD_CD,Y_COORD_CD,Latitude,Longitude,Lon_Lat)) %>% mutate(OCCUR_DATE = mdy(OCCUR_DATE),                                                               OCCUR_TIME = parse_time(OCCUR_TIME,format='%H:%M:%S'),
+                    MURDER_FLAG = case_when(STATISTICAL_MURDER_FLAG == "true" ~ TRUE, TRUE ~ FALSE),
+                    PERP_AGE_GROUP = factor(PERP_AGE_GROUP),
+                    PERP_SEX = factor(PERP_SEX),
+                    PERP_RACE = factor(PERP_RACE),
+                    VIC_AGE_GROUP = factor(VIC_AGE_GROUP),
+                    VIC_SEX = factor(VIC_SEX),
+                    VIC_RACE = factor(VIC_RACE),
+                    .keep = 'unused') 
+
+# show the first ten rows of the tidied data.
+tydied_nypd_shooting_incident_data_historic %>% head(n=30)
+```
+
+```{r visualizations}
+# let's check how many murder cases for each RERP_RACE
+tydied_nypd_shooting_incident_data_historic %>% 
+    group_by(PERP_RACE) %>%
+    summarise(MURDER_POPULATION = sum(MURDER_FLAG)) %>%
+    ggplot(aes(x=PERP_RACE,y=MURDER_POPULATION)) +
+    geom_point() +
+    theme(axis.text.x = element_text(angle = 45))
+
+# and then let's check how many murder cased for each VIC_RACE
+tydied_nypd_shooting_incident_data_historic %>% 
+    group_by(VIC_RACE) %>%
+    summarise(MURDER_POPULATION = sum(MURDER_FLAG)) %>%
+    ggplot(aes(x=VIC_RACE,y=MURDER_POPULATION)) +
+    geom_point() +
+    theme(axis.text.x = element_text(angle = 45))
+
+```
+
+# **Analysis:**
+## Comparing the two graphs above, we can see the following points:
+* There are most PERP and VIC cases in race BLACK factor.
+* Also there are much more UNKNOWN PERP races than VIC races. So we can say that most VIC are with race BLACK, but we can not say the most PERP are with race BLACK, since the UNKNOWN data shares a big proportion.
+* Since most of the VIC are with race BLACK, we may need to think about how to protect them from shooting cases.
+* Also there are too many UNKNOWN PERP races, it means our data is not good, or there are many incidents that the PERP has not been caught. 
+
+# **Conclusion:**
+## From this project, I have learned: 
+1. How to import and read the data from the website, using the link to import and read the data
+2. How to tidy and transform the data, removing the data which is not needed and transforming the data with the format I need.
+3. How to show the data result, using visualization tools to present our data result.
+4. What information we can get from the analysis of the result, checking the visualization and getting some analysis result.
+5. Also finally the bias is everywhere. 
++ The data categorize may be not proper, we don't have any idea why we divide the age ranges that way, e.g., the age 18-24, the cases may focus between 18-20, however from the data, we may think the age 21-24 also have many cases.
++ The way we use to analyse the data may also include our bias, e.g. for the data not proper, how we handle it, e.g. how should we handle the empty data. I just treat the empty data and improper data as Unknown. I don't think it is a best way to treat the empty data, but I think it is better to treat it as some specified factor element.
